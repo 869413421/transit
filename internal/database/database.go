@@ -1,41 +1,45 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/869413421/transit/internal/config"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// NewMySQLDB 创建 MySQL 数据库连接
-func NewMySQLDB(cfg *config.DatabaseConfig) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+// NewPostgresPool 创建 PostgreSQL 连接池
+func NewPostgresPool(cfg *config.DatabaseConfig) (*pgxpool.Pool, error) {
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
 		cfg.Port,
 		cfg.DBName,
+		cfg.SSLMode,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to parse pool config: %w", err)
 	}
 
-	sqlDB, err := db.DB()
+	// 配置连接池
+	poolConfig.MaxConns = 100
+	poolConfig.MinConns = 10
+	poolConfig.MaxConnLifetime = time.Hour
+	poolConfig.MaxConnIdleTime = 30 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// 设置连接池
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	// 测试连接
+	if err := pool.Ping(context.Background()); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
 
-	return db, nil
+	return pool, nil
 }

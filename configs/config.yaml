@@ -3,12 +3,12 @@ server:
   environment: "development"  # development, production
 
 database:
-  host: "127.0.0.1"
-  port: "3306"
-  user: "root"
-  password: "password"
-  dbname: "transit"
-  sslmode: "disable"
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: transit
+  sslmode: disable
 
 redis:
   addr: "127.0.0.1:6379"

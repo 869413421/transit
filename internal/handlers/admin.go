@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/869413421/transit/internal/config"
 	"github.com/869413421/transit/internal/models"
@@ -69,6 +70,7 @@ func (h *AdminHandler) AddChannel(c *gin.Context) {
 		return
 	}
 
+	now := time.Now()
 	channel := &models.Channel{
 		ID:             uuid.New().String(),
 		Name:           req.Name,
@@ -77,6 +79,8 @@ func (h *AdminHandler) AddChannel(c *gin.Context) {
 		MaxConcurrency: req.MaxConcurrency,
 		Weight:         req.Weight,
 		IsActive:       true,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	if channel.MaxConcurrency == 0 {
@@ -86,7 +90,7 @@ func (h *AdminHandler) AddChannel(c *gin.Context) {
 		channel.Weight = 10
 	}
 
-	if err := h.channelService.Create(channel); err != nil {
+	if err := h.channelService.Create(c.Request.Context(), channel); err != nil {
 		logger.Error("Failed to create channel", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create channel"})
 		return
@@ -111,7 +115,7 @@ func (h *AdminHandler) ListChannels(c *gin.Context) {
 // DeleteChannel 删除渠道
 func (h *AdminHandler) DeleteChannel(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.channelService.Delete(id); err != nil {
+	if err := h.channelService.Delete(c.Request.Context(), id); err != nil {
 		logger.Error("Failed to delete channel", zap.String("id", id), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete channel"})
 		return

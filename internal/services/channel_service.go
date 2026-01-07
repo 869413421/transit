@@ -10,10 +10,10 @@ import (
 
 // ChannelService 渠道服务接口
 type ChannelService interface {
-	Create(channel *models.Channel) error
-	GetAll() ([]*models.Channel, error)
+	Create(ctx context.Context, channel *models.Channel) error
+	GetAll(ctx context.Context) ([]*models.Channel, error)
 	GetAllWithConcurrency(ctx context.Context) ([]*models.Channel, error)
-	Delete(id string) error
+	Delete(ctx context.Context, id string) error
 }
 
 type channelService struct {
@@ -29,16 +29,16 @@ func NewChannelService(repo repository.ChannelRepository, pool *pool.RedisPool) 
 	}
 }
 
-func (s *channelService) Create(channel *models.Channel) error {
-	return s.repo.Create(channel)
+func (s *channelService) Create(ctx context.Context, channel *models.Channel) error {
+	return s.repo.Create(ctx, channel)
 }
 
-func (s *channelService) GetAll() ([]*models.Channel, error) {
-	return s.repo.FindAll()
+func (s *channelService) GetAll(ctx context.Context) ([]*models.Channel, error) {
+	return s.repo.FindAll(ctx)
 }
 
 func (s *channelService) GetAllWithConcurrency(ctx context.Context) ([]*models.Channel, error) {
-	channels, err := s.repo.FindAll()
+	channels, err := s.repo.FindAll(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,6 @@ func (s *channelService) GetAllWithConcurrency(ctx context.Context) ([]*models.C
 	return channels, nil
 }
 
-func (s *channelService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *channelService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
