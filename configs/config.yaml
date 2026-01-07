@@ -1,0 +1,19 @@
+server:
+  port: "8080"
+  environment: "development"  # development, production
+
+database:
+  host: "127.0.0.1"
+  port: "3306"
+  user: "root"
+  password: "password"
+  dbname: "transit"
+  sslmode: "disable"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+admin:
+  token: "transit-admin-secret-2026"  # 请修改为强密码

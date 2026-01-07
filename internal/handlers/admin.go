@@ -3,27 +3,41 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/869413421/transit/internal/config"
 	"github.com/869413421/transit/internal/models"
+	"github.com/869413421/transit/internal/repository"
+	"github.com/869413421/transit/internal/services"
 	"github.com/869413421/transit/pkg/billing"
+	"github.com/869413421/transit/pkg/logger"
 	"github.com/869413421/transit/pkg/pool"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"go.uber.org/zap"
 )
 
 // AdminHandler 管理后台处理器
 type AdminHandler struct {
-	db      *gorm.DB
-	pool    *pool.RedisPool
-	billing *billing.Service
+	cfg            *config.Config
+	channelService services.ChannelService
+	userRepo       repository.UserRepository
+	billing        *billing.Service
+	pool           *pool.RedisPool
 }
 
 // NewAdminHandler 创建管理处理器
-func NewAdminHandler(db *gorm.DB, pool *pool.RedisPool, billing *billing.Service) *AdminHandler {
+func NewAdminHandler(
+	cfg *config.Config,
+	channelService services.ChannelService,
+	userRepo repository.UserRepository,
+	billing *billing.Service,
+	pool *pool.RedisPool,
+) *AdminHandler {
 	return &AdminHandler{
-		db:      db,
-		pool:    pool,
-		billing: billing,
+		cfg:            cfg,
+		channelService: channelService,
+		userRepo:       userRepo,
+		billing:        billing,
+		pool:           pool,
 	}
 }
 
@@ -31,8 +45,7 @@ func NewAdminHandler(db *gorm.DB, pool *pool.RedisPool, billing *billing.Service
 func (h *AdminHandler) AdminAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("X-Admin-Token")
-		// TODO: 从配置或数据库读取管理员 Token
-		if token != "transit-admin-secret-2026" {
+		if token != h.cfg.Admin.Token {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
@@ -73,26 +86,23 @@ func (h *AdminHandler) AddChannel(c *gin.Context) {
 		channel.Weight = 10
 	}
 
-	if err := h.db.Create(channel).Error; err != nil {
+	if err := h.channelService.Create(channel); err != nil {
+		logger.Error("Failed to create channel", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create channel"})
 		return
 	}
 
+	logger.Info("Channel created", zap.String("id", channel.ID), zap.String("name", channel.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "Channel added successfully", "channel": channel})
 }
 
 // ListChannels 列出所有渠道
 func (h *AdminHandler) ListChannels(c *gin.Context) {
-	var channels []models.Channel
-	if err := h.db.Find(&channels).Error; err != nil {
+	channels, err := h.channelService.GetAllWithConcurrency(c.Request.Context())
+	if err != nil {
+		logger.Error("Failed to fetch channels", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch channels"})
 		return
-	}
-
-	// 获取实时并发数
-	for i := range channels {
-		concurrency, _ := h.pool.GetConcurrency(c.Request.Context(), channels[i].ID)
-		channels[i].CurrentConcurrency = concurrency
 	}
 
 	c.JSON(http.StatusOK, gin.H{"channels": channels})
@@ -101,11 +111,13 @@ func (h *AdminHandler) ListChannels(c *gin.Context) {
 // DeleteChannel 删除渠道
 func (h *AdminHandler) DeleteChannel(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.db.Delete(&models.Channel{}, "id = ?", id).Error; err != nil {
+	if err := h.channelService.Delete(id); err != nil {
+		logger.Error("Failed to delete channel", zap.String("id", id), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete channel"})
 		return
 	}
 
+	logger.Info("Channel deleted", zap.String("id", id))
 	c.JSON(http.StatusOK, gin.H{"message": "Channel deleted successfully"})
 }
 
@@ -124,41 +136,44 @@ func (h *AdminHandler) Recharge(c *gin.Context) {
 
 	// Redis 充值
 	if err := h.billing.Recharge(c.Request.Context(), req.UserID, req.Amount); err != nil {
+		logger.Error("Failed to recharge", zap.String("user_id", req.UserID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to recharge"})
 		return
 	}
 
-	// 记录流水
-	log := &models.BillingLog{
-		ID:      uuid.New().String(),
-		UserID:  req.UserID,
-		Amount:  req.Amount,
-		LogType: "recharge",
-		Remark:  req.Remark,
-	}
-	h.db.Create(log)
-
-	c.JSON(http.StatusOK, gin.H{"message": "Recharge successful", "new_balance": req.Amount})
+	logger.Info("User recharged", zap.String("user_id", req.UserID), zap.Float64("amount", req.Amount))
+	c.JSON(http.StatusOK, gin.H{"message": "Recharge successful"})
 }
 
 // Monitor 系统监控
 func (h *AdminHandler) Monitor(c *gin.Context) {
-	var channels []models.Channel
-	h.db.Where("is_active = ?", true).Find(&channels)
+	channels, err := h.channelService.GetAllWithConcurrency(c.Request.Context())
+	if err != nil {
+		logger.Error("Failed to fetch channels for monitoring", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch monitoring data"})
+		return
+	}
 
 	var totalConcurrency int
 	channelStats := make([]map[string]interface{}, 0)
 
 	for _, ch := range channels {
-		concurrency, _ := h.pool.GetConcurrency(c.Request.Context(), ch.ID)
-		totalConcurrency += concurrency
+		if !ch.IsActive {
+			continue
+		}
+		totalConcurrency += ch.CurrentConcurrency
+
+		usage := float64(0)
+		if ch.MaxConcurrency > 0 {
+			usage = float64(ch.CurrentConcurrency) / float64(ch.MaxConcurrency) * 100
+		}
 
 		channelStats = append(channelStats, map[string]interface{}{
 			"id":          ch.ID,
 			"name":        ch.Name,
-			"concurrency": concurrency,
+			"concurrency": ch.CurrentConcurrency,
 			"max":         ch.MaxConcurrency,
-			"usage":       float64(concurrency) / float64(ch.MaxConcurrency) * 100,
+			"usage":       usage,
 		})
 	}
 

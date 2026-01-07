@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+bin/
 
 # 测试文件
 *.test
@@ -18,6 +19,7 @@ vendor/
 # 环境配置
 .env
 configs/.env
+configs/config.local.yaml
 
 # IDE
 .idea/
@@ -32,3 +34,6 @@ configs/.env
 # 临时文件
 tmp/
 temp/
+
+# Air 热重载
+.air.toml
