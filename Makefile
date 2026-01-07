@@ -36,7 +36,3 @@ docker-run: ## 运行 Docker 容器
 tidy: ## 整理依赖
 	@echo "整理 Go 依赖..."
 	@go mod tidy
-
-migrate: ## 运行数据库迁移
-	@echo "运行数据库迁移..."
-	@mysql -u root -p transit < migrations/001_init_schema.sql

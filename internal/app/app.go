@@ -12,7 +12,9 @@ import (
 	"github.com/869413421/transit/internal/repository"
 	"github.com/869413421/transit/internal/services"
 	"github.com/869413421/transit/pkg/billing"
+	"github.com/869413421/transit/pkg/loadbalancer"
 	"github.com/869413421/transit/pkg/logger"
+	"github.com/869413421/transit/pkg/poller"
 	"github.com/869413421/transit/pkg/pool"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -72,6 +74,7 @@ func (a *App) Start() error {
 	// 4. 初始化持久层 (Repositories)
 	channelRepo := repository.NewChannelRepository(a.db)
 	userRepo := repository.NewUserRepository(a.db)
+	taskRepo := repository.NewTaskRepository(a.db)
 
 	// 5. 初始化基础设施层
 	redisPool := pool.NewRedisPool(a.redis)
@@ -79,6 +82,8 @@ func (a *App) Start() error {
 
 	// 6. 初始化业务逻辑层 (Services)
 	channelService := services.NewChannelService(channelRepo, redisPool)
+	taskService := services.NewTaskService(taskRepo)
+	selector := loadbalancer.NewSelector(channelRepo, redisPool)
 
 	// 7. 初始化接口层 (Handlers)
 	adminHandler := handlers.NewAdminHandler(
@@ -89,15 +94,30 @@ func (a *App) Start() error {
 		redisPool,
 	)
 
+	proxyHandler := handlers.NewProxyHandler(
+		a.cfg,
+		selector,
+		taskService,
+		billingService,
+	)
+
 	// 8. 配置路由
 	if a.cfg.Server.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	engine := gin.New()
-	router := api.NewRouter(engine, adminHandler)
+
+	// 添加用户认证中间件到API路由
+	engine.Use(gin.Logger(), gin.Recovery())
+
+	router := api.NewRouter(engine, adminHandler, proxyHandler)
 	router.Setup()
 
-	// 9. 启动 HTTP 服务
+	// 9. 启动后台任务轮询器
+	poller := poller.NewPoller(taskService, channelRepo, selector, billingService)
+	go poller.Start(context.Background())
+
+	// 10. 启动 HTTP 服务
 	addr := ":" + a.cfg.Server.Port
 	logger.Info("服务器正在启动", zap.String("address", addr), zap.String("environment", a.cfg.Server.Environment))
 	return engine.Run(addr)

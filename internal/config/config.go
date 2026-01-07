@@ -12,6 +12,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Admin    AdminConfig    `mapstructure:"admin"`
+	Models   ModelsConfig   // 模型配置,单独加载
 }
 
 // ServerConfig 服务器配置
@@ -70,5 +71,31 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// 加载模型配置
+	if err := loadModels(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to load models config: %w", err)
+	}
+
 	return &cfg, nil
+}
+
+// loadModels 加载模型配置
+func loadModels(cfg *Config) error {
+	modelsViper := viper.New()
+	modelsViper.SetConfigName("models")
+	modelsViper.SetConfigType("yaml")
+	modelsViper.AddConfigPath("./configs")
+	modelsViper.AddConfigPath(".")
+
+	if err := modelsViper.ReadInConfig(); err != nil {
+		return fmt.Errorf("read models config: %w", err)
+	}
+
+	var allModels AllModels
+	if err := modelsViper.Unmarshal(&allModels); err != nil {
+		return fmt.Errorf("unmarshal models config: %w", err)
+	}
+
+	cfg.Models = allModels.Models
+	return nil
 }

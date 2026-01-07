@@ -1,0 +1,35 @@
+models:
+  # 文本模型 - Gemini系列
+  text:
+    - name: "gemini-3-flash-preview"
+      upstream_name: "gemini-3-flash-preview"
+      type: "sync"
+      price_per_1k_input_tokens: 0.001
+      price_per_1k_output_tokens: 0.002
+      
+    - name: "gemini-3-pro-preview"
+      upstream_name: "gemini-3-pro-preview"
+      type: "sync"
+      price_per_1k_input_tokens: 0.01
+      price_per_1k_output_tokens: 0.02
+  
+  # 图像模型 - Gemini系列
+  image:
+    - name: "gemini-3-pro-image-preview"
+      upstream_name: "gemini-3-pro-image-preview"
+      type: "async"
+      price_per_generation: 0.05
+      
+  # 视频模型 - Veo系列
+  video:
+    - name: "veo3.1-fast"
+      upstream_name: "veo3.1-fast"
+      type: "async"
+      price_per_generation: 0.15
+      description: "快速生成模型，适用于快速预览和迭代"
+      
+    - name: "veo3.1-quality"
+      upstream_name: "veo3.1-quality"
+      type: "async"
+      price_per_generation: 0.30
+      description: "高质量生成模型，适用于最终制作"
