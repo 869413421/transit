@@ -3,6 +3,8 @@ package api
 import (
 	"github.com/869413421/transit/internal/handlers"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // Router 路由器
@@ -21,6 +23,9 @@ func NewRouter(engine *gin.Engine, adminHandler *handlers.AdminHandler) *Router 
 
 // Setup 配置路由
 func (r *Router) Setup() {
+	// Swagger 文档
+	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	// 健康检查
 	r.engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

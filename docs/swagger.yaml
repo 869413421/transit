@@ -1,0 +1,271 @@
+basePath: /
+definitions:
+  models.Channel:
+    properties:
+      base_url:
+        type: string
+      created_at:
+        type: string
+      current_concurrency:
+        type: integer
+      id:
+        type: string
+      is_active:
+        type: boolean
+      max_concurrency:
+        type: integer
+      name:
+        type: string
+      secret_key:
+        type: string
+      updated_at:
+        type: string
+      weight:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@transit.com
+    name: API Support
+    url: https://github.com/869413421/transit
+  description: 高性能 API 中转站，支持多模型转发与计费管理
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Transit API 中转站
+  version: "1.0"
+paths:
+  /admin/channels:
+    get:
+      description: 获取所有上游渠道列表及实时并发数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              channels:
+                items:
+                  $ref: '#/definitions/models.Channel'
+                type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AdminToken: []
+      summary: 查看所有渠道
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: 添加一个新的上游 API Key 到渠道池
+      parameters:
+      - description: 渠道信息
+        in: body
+        name: channel
+        required: true
+        schema:
+          properties:
+            base_url:
+              type: string
+            max_concurrency:
+              type: integer
+            name:
+              type: string
+            secret_key:
+              type: string
+            weight:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              channel:
+                $ref: '#/definitions/models.Channel'
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AdminToken: []
+      summary: 添加上游渠道
+      tags:
+      - Admin
+  /admin/channels/{id}:
+    delete:
+      description: 从渠道池中删除指定的上游 Key
+      parameters:
+      - description: 渠道 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AdminToken: []
+      summary: 删除渠道
+      tags:
+      - Admin
+  /admin/monitor:
+    get:
+      description: 查看全站实时并发水位和渠道负载状况
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              channels:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              total_concurrency:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AdminToken: []
+      summary: 系统监控
+      tags:
+      - Admin
+  /admin/recharge:
+    post:
+      consumes:
+      - application/json
+      description: 为指定用户账户充值
+      parameters:
+      - description: 充值信息
+        in: body
+        name: recharge
+        required: true
+        schema:
+          properties:
+            amount:
+              type: number
+            remark:
+              type: string
+            user_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AdminToken: []
+      summary: 用户充值
+      tags:
+      - Admin
+securityDefinitions:
+  AdminToken:
+    description: 管理员 API Token
+    in: header
+    name: X-Admin-Token
+    type: apiKey
+swagger: "2.0"

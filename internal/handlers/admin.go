@@ -56,6 +56,18 @@ func (h *AdminHandler) AdminAuth() gin.HandlerFunc {
 }
 
 // AddChannel 添加渠道
+// @Summary 添加上游渠道
+// @Description 添加一个新的上游 API Key 到渠道池
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security AdminToken
+// @Param channel body object{name=string,secret_key=string,base_url=string,max_concurrency=int,weight=int} true "渠道信息"
+// @Success 200 {object} object{message=string,channel=models.Channel}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/channels [post]
 func (h *AdminHandler) AddChannel(c *gin.Context) {
 	var req struct {
 		Name           string `json:"name" binding:"required"`
@@ -101,6 +113,15 @@ func (h *AdminHandler) AddChannel(c *gin.Context) {
 }
 
 // ListChannels 列出所有渠道
+// @Summary 查看所有渠道
+// @Description 获取所有上游渠道列表及实时并发数
+// @Tags Admin
+// @Produce json
+// @Security AdminToken
+// @Success 200 {object} object{channels=[]models.Channel}
+// @Failure 401 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/channels [get]
 func (h *AdminHandler) ListChannels(c *gin.Context) {
 	channels, err := h.channelService.GetAllWithConcurrency(c.Request.Context())
 	if err != nil {
@@ -113,6 +134,16 @@ func (h *AdminHandler) ListChannels(c *gin.Context) {
 }
 
 // DeleteChannel 删除渠道
+// @Summary 删除渠道
+// @Description 从渠道池中删除指定的上游 Key
+// @Tags Admin
+// @Produce json
+// @Security AdminToken
+// @Param id path string true "渠道 ID"
+// @Success 200 {object} object{message=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/channels/{id} [delete]
 func (h *AdminHandler) DeleteChannel(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.channelService.Delete(c.Request.Context(), id); err != nil {
@@ -126,6 +157,18 @@ func (h *AdminHandler) DeleteChannel(c *gin.Context) {
 }
 
 // Recharge 用户充值
+// @Summary 用户充值
+// @Description 为指定用户账户充值
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security AdminToken
+// @Param recharge body object{user_id=string,amount=number,remark=string} true "充值信息"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/recharge [post]
 func (h *AdminHandler) Recharge(c *gin.Context) {
 	var req struct {
 		UserID string  `json:"user_id" binding:"required"`
@@ -150,6 +193,15 @@ func (h *AdminHandler) Recharge(c *gin.Context) {
 }
 
 // Monitor 系统监控
+// @Summary 系统监控
+// @Description 查看全站实时并发水位和渠道负载状况
+// @Tags Admin
+// @Produce json
+// @Security AdminToken
+// @Success 200 {object} object{total_concurrency=int,channels=[]object,status=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/monitor [get]
 func (h *AdminHandler) Monitor(c *gin.Context) {
 	channels, err := h.channelService.GetAllWithConcurrency(c.Request.Context())
 	if err != nil {

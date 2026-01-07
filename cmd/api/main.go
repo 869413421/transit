@@ -6,7 +6,29 @@ import (
 	"github.com/869413421/transit/internal/app"
 	"github.com/869413421/transit/internal/config"
 	"github.com/869413421/transit/pkg/logger"
+
+	_ "github.com/869413421/transit/docs" // Swagger 文档
 )
+
+// @title Transit API 中转站
+// @version 1.0
+// @description 高性能 API 中转站，支持多模型转发与计费管理
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://github.com/869413421/transit
+// @contact.email support@transit.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey AdminToken
+// @in header
+// @name X-Admin-Token
+// @description 管理员 API Token
 
 func main() {
 	// 1. 加载应用程序配置
